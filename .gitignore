@@ -1,0 +1,8 @@
+.DS_Store
+.claude/
+.snapshots/
+*.zip
+node_modules/
+.next/
+.env
+.env.*
