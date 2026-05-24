@@ -1,0 +1,20 @@
+{
+  "name": "bewerbungsseite",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "npm run lint:js && npm run lint:css",
+    "lint:js": "eslint *.js",
+    "lint:css": "stylelint '*.css'",
+    "serve": "serve . -l 5500",
+    "cypress": "cypress open",
+    "test": "npm run lint"
+  },
+  "devDependencies": {
+    "cypress": "^13.0.0",
+    "eslint": "^9.0.0",
+    "serve": "^14.0.0",
+    "stylelint": "^16.0.0",
+    "stylelint-config-standard": "^36.0.0"
+  }
+}
