@@ -28,7 +28,7 @@ export default [
     files: ['intro.js'],
     languageOptions: {
       ecmaVersion: 2022,
-      sourceType: 'script',
+      sourceType: 'module',
       globals: {
         window: 'readonly',
         document: 'readonly',
@@ -36,7 +36,6 @@ export default [
         requestAnimationFrame: 'readonly',
         performance: 'readonly',
         sessionStorage: 'readonly',
-        THREE: 'readonly',
         Math: 'readonly',
         Float32Array: 'readonly',
         String: 'readonly',

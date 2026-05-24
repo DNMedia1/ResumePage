@@ -379,8 +379,24 @@
     </section>
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.min.js"></script>
-  <script src="intro.js"></script>
+  <!-- Three.js als ES-Modul via Import Map (UMD-Build three.min.js gibt es ab r161 nicht mehr) -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.min.js"
+      }
+    }
+  </script>
+  <!-- Sicherheitsnetz: Overlay nie die Seite blockieren lassen, falls das Modul nicht lädt -->
+  <script>
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        var ov = document.getElementById('intro-overlay');
+        if (ov && ov.dataset.introActive !== '1') ov.remove();
+      }, 2500);
+    });
+  </script>
+  <script type="module" src="intro.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
   <script type="module" src="script.js"></script>

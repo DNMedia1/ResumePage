@@ -1,6 +1,9 @@
 /* ==============================================
    intro.js – Three.js 3D particle "DN" intro
+   ES-Modul: THREE wird per Import Map geladen.
    ============================================== */
+
+import * as THREE from 'three';
 
 (function () {
   'use strict';
@@ -8,7 +11,8 @@
   /* ---------- Guards ---------- */
   var overlay = document.getElementById('intro-overlay');
   if (!overlay) return;
-  if (typeof THREE === 'undefined') { overlay.remove(); return; }
+  // Signalisiert dem Safety-Net in index.html, dass das Intro die Kontrolle übernimmt.
+  overlay.dataset.introActive = '1';
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { overlay.remove(); return; }
   if (sessionStorage.getItem('intro-played')) { overlay.remove(); return; }
 
