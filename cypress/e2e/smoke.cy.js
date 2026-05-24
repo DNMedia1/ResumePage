@@ -1,6 +1,11 @@
 describe('Portfolio – Smoke Tests', () => {
   beforeEach(() => {
-    cy.visit('/');
+    // Intro-Overlay überspringen: deterministische Tests, unabhängig von WebGL/Animation.
+    cy.visit('/', {
+      onBeforeLoad(win) {
+        win.sessionStorage.setItem('intro-played', '1');
+      },
+    });
   });
 
   it('loads the page with hero section', () => {

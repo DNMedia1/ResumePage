@@ -52,7 +52,14 @@ import * as THREE from 'three';
 
   /* ---------- Three.js setup ---------- */
   var canvas   = document.getElementById('intro-canvas');
-  var renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: false });
+  var renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: false });
+  } catch {
+    // Kein WebGL (z. B. GPU deaktiviert oder CI-Runner ohne GPU) → Intro überspringen.
+    overlay.remove();
+    return;
+  }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
 
