@@ -1,39 +1,53 @@
-@keyframes float {
-
-  0%,
-  100% {
-    transform: translateY(0px);
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
   }
 
-  50% {
-    transform: translateY(-10px);
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
 :root {
-  /* Farbpalette */
-  --bg: #070a12;
-  --bg-2: #0c1322;
-  --text: #f7fbff;
-  --muted: #9aa9bc;
+  /* Farbpalette - Apple Vision Pro Style */
+  --bg: #020617;
+  --bg-2: #0f172a;
+  --text: #f1f5f9;
+  --muted: #94a3b8;
   --line: rgba(255, 255, 255, 0.13);
-  --glass: rgba(255, 255, 255, 0.075);
-  --glass-strong: rgba(255, 255, 255, 0.12);
-  --cyan: #5df3ff;
-  --blue: #477cff;
+  --glass: rgba(255, 255, 255, 0.03);
+  --glass-strong: rgba(255, 255, 255, 0.08);
+  --cyan: #38bdf8;
+  --blue: #3b82f6;
   --green: #8fffba;
-  --shadow: 0 28px 90px rgba(0, 0, 0, 0.45);
+  --shadow: 0 10px 40px -10px rgba(56, 189, 248, 0.25);
 
-  /* Abstände */
-  --container-width: min(1180px, calc(100% - 36px));
-  --section-padding: 72px 0;
-  --card-radius: 22px;
-  --button-radius: 999px;
+  /* Abstände - breiterer Desktop-Fokus */
+  --container-width: min(1400px, calc(100% - 60px));
+  --section-padding: 120px 0;
+  --card-radius: 2.5rem;
+  --button-radius: 1.5rem;
 
   /* Animationen */
   --transition-fast: 160ms ease;
   --transition-normal: 220ms ease;
   --transition-slow: 520ms ease;
+}
+
+/* Glasmorphism-Effekt */
+.glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: border 0.3s ease, box-shadow 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.glass-card:hover {
+  border-color: rgba(56, 189, 248, 0.3);
+  box-shadow: 0 10px 40px -10px rgba(56, 189, 248, 0.25);
 }
 
 /* Reset & Grundstile */
@@ -45,7 +59,6 @@ html {
   color-scheme: dark;
   scroll-behavior: smooth;
   scroll-padding-top: 92px;
-  scroll-snap-type: y mandatory;
 }
 
 body {
@@ -66,15 +79,10 @@ a {
   text-decoration: none;
 }
 
+/* FIX P3: perspective auf main entfernt — erzeugt unnötigen 3D-Renderkontext
+   für die gesamte Seite. Hero hat seine eigene perspective-Regel. */
 main {
   overflow: clip;
-  perspective: 1200px;
-  scroll-snap-type: y mandatory;
-  scroll-behavior: smooth;
-}
-
-section {
-  scroll-snap-align: start;
 }
 
 .skip-link {
@@ -158,6 +166,12 @@ section {
   outline-offset: 3px;
 }
 
+/* FIX B1: .topbar.scrolled war definiert im JS aber fehlte im CSS */
+.topbar.scrolled {
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.38);
+}
+
 /* Hero Section */
 .hero {
   position: relative;
@@ -175,7 +189,7 @@ section {
   padding: 64px 0 42px;
 }
 
-.hero-copy,
+.hero-content,
 .identity-card,
 .tag-strip span {
   will-change: transform, opacity;
@@ -193,13 +207,12 @@ section {
   pointer-events: none;
 }
 
-.hero-copy {
+.hero-content {
   min-width: 0;
   max-width: 760px;
-  animation: rise 680ms ease both;
 }
 
-.hero-copy .hero-kicker {
+.hero-content .hero-kicker {
   display: inline-flex;
   width: fit-content;
   max-width: 100%;
@@ -228,7 +241,7 @@ section {
   text-wrap: pretty;
 }
 
-.hero-copy p {
+.hero-content p {
   max-width: 700px;
   margin: 0 0 30px;
   color: #c7d4e5;
@@ -236,12 +249,18 @@ section {
   line-height: 1.62;
 }
 
+/* FIX B5: Hero-Buttons linksbündig ausrichten (war fälschlicherweise center) */
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
+}
+
+/* Contact-CTA-Buttons bleiben zentriert */
+.contact-section .hero-actions {
+  justify-content: center;
 }
 
 .button {
@@ -287,7 +306,6 @@ section {
     rgba(255, 255, 255, 0.04);
   box-shadow: var(--shadow);
   backdrop-filter: blur(22px);
-  animation: floatCard 6s ease-in-out infinite;
 }
 
 .identity-card::before {
@@ -421,6 +439,10 @@ section:not(.hero) {
 }
 
 
+/* FIX P2/P3: will-change und transform-style: preserve-3d von Section-Elementen entfernt.
+   GSAP setzt will-change selbst kurz vor der Animation und entfernt es danach.
+   Dauerhaftes will-change auf großen Sections bindet VRAM ohne Nutzen.
+   preserve-3d auf Sections ist nicht nötig (keine 3D-Kinder relativ zueinander). */
 .hero,
 .about-section,
 .tech-section,
@@ -428,8 +450,6 @@ section:not(.hero) {
 .experience-section,
 .workflow-section,
 .contact-section {
-  transform-style: preserve-3d;
-  will-change: transform, opacity;
   backface-visibility: hidden;
 }
 
@@ -443,12 +463,13 @@ section:not(.hero) {
 }
 
 /* About Section */
+/* FIX P1: backdrop-filter auf Section-Ebene entfernt — Blur auf großen
+   Flächen ist teuer. Cards und Topbar behalten ihren Blur. */
 .about-section {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.025)),
     rgba(255, 255, 255, 0.025);
   box-shadow: none;
-  backdrop-filter: blur(16px);
   border: 1px solid var(--line);
   border-radius: var(--card-radius);
   padding: var(--section-padding);
@@ -564,7 +585,6 @@ section:not(.hero) {
     radial-gradient(circle at 18% 0%, rgba(93, 243, 255, 0.11), transparent 26rem),
     rgba(255, 255, 255, 0.035);
   box-shadow: none;
-  backdrop-filter: blur(16px);
   border: 1px solid var(--line);
   border-radius: var(--card-radius);
   padding: var(--section-padding);
@@ -606,8 +626,6 @@ section:not(.hero) {
   transform: translateY(-3px) rotateY(2deg);
   border-color: rgba(93, 243, 255, 0.38);
   background: var(--glass-strong);
-  border-color: rgba(93, 243, 255, 0.38);
-  background: var(--glass-strong);
 }
 
 .project-icon {
@@ -647,7 +665,6 @@ section:not(.hero) {
 .experience-section {
   background: transparent;
   box-shadow: none;
-  backdrop-filter: blur(18px);
   border: 0;
   padding: var(--section-padding) 0;
 }
@@ -707,7 +724,6 @@ section:not(.hero) {
     linear-gradient(135deg, rgba(71, 124, 255, 0.12), rgba(255, 255, 255, 0.035)),
     rgba(255, 255, 255, 0.025);
   box-shadow: none;
-  backdrop-filter: blur(18px);
   border: 1px solid var(--line);
   border-radius: var(--card-radius);
   padding: var(--section-padding);
@@ -800,6 +816,42 @@ section:not(.hero) {
   50% {
     transform: translate(-50%, -50%) scale(1.04);
   }
+}
+
+/* Hero-Headline Gradient + Shine */
+.hero-gradient-text {
+  background: linear-gradient(90deg, #ffffff 0%, #c7d4e5 35%, #ffffff 65%, #dffbff 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: textShine 6s linear infinite;
+}
+
+@keyframes textShine {
+  to {
+    background-position: 200% center;
+  }
+}
+
+/* Portrait-Fallback (Monogramm) wenn Bild fehlt */
+.portrait-fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1 / 1.08;
+  margin: 0 auto 22px;
+  border-radius: 22px;
+  border: 1px solid rgba(93, 243, 255, 0.22);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(93, 243, 255, 0.28), transparent 60%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03));
+  color: #dffbff;
+  font-size: clamp(3rem, 7vw, 4.5rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  box-shadow: 0 24px 70px rgba(31, 78, 121, 0.34);
 }
 
 /* Responsivität */
@@ -917,7 +969,7 @@ section:not(.hero) {
     overflow-wrap: break-word;
   }
 
-  .hero-copy p {
+  .hero-content p {
     max-width: 100%;
     font-size: 0.98rem;
   }

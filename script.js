@@ -1,308 +1,212 @@
-import * as THREE from "https://unpkg.com/three@0.164.1/build/three.module.js";
+/* ==============================================
+   script.js – clean, performant, professional
+   ============================================== */
 
-const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+(function () {
+  /* ---------- 1. Reduced motion detection ---------- */
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReduced) {
+    console.warn('[Performance] Prefers-reduced-motion enabled → disabling heavy animations');
+  }
 
-// Subtle 3D scroll transitions for the static portfolio page.
-// The hero section is intentionally excluded so the first viewport stays stable.
-const canUseGsap =
-  window.gsap &&
-  window.ScrollTrigger &&
-  !prefersReducedMotion;
+  /* ---------- 1b. ScrollTrigger einmalig global registrieren ---------- */
+  if (window.gsap && window.ScrollTrigger) {
+    gsap.registerPlugin(ScrollTrigger);
+  }
 
-if (canUseGsap) {
-  const gsapLib = window.gsap;
-  gsapLib.registerPlugin(window.ScrollTrigger);
+  /* ---------- 2. Utility helpers ---------- */
+  const $qs  = (s) => document.querySelector(s);
+  const $qsa = (s) => document.querySelectorAll(s);
+  const debounce = (fn, delay) => {
+    let timer;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), delay);
+    };
+  };
 
-  gsapLib.utils.toArray(
-    '.about-section, .tech-section, .projects-section, .experience-section, .workflow-section, .contact-section'
-  ).forEach((section) => {
-    gsapLib.fromTo(
-      section,
-      {
+  /* ---------- 3. Hero canvas particle system ----------
+     FIX B2: init inside DOMContentLoaded + rAF so getBoundingClientRect
+             has real layout dimensions (never returns 0×0).
+     FIX canvas-resize: W/H are kept in closure and updated on resize.    */
+  const initCanvas = () => {
+    if (prefersReduced) return;
+    const particleCanvas = $qs('#hero-canvas');
+    if (!particleCanvas) return;
+
+    requestAnimationFrame(() => {
+      const ctx = particleCanvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const rect = particleCanvas.getBoundingClientRect();
+      let W = rect.width;
+      let H = rect.height;
+      particleCanvas.width  = W * dpr;
+      particleCanvas.height = H * dpr;
+      ctx.scale(dpr, dpr);
+
+      const NUM_PARTICLES = 30;
+      const particles = [];
+      for (let i = 0; i < NUM_PARTICLES; i++) {
+        particles.push({
+          x:       Math.random() * W,
+          y:       Math.random() * H,
+          size:    Math.random() * 1.5 + 0.5,
+          speedX:  (Math.random() - 0.5),
+          speedY:  (Math.random() - 0.5),
+          opacity: Math.random() * 0.4 + 0.1,
+        });
+      }
+
+      let animActive = true;
+
+      const draw = () => {
+        ctx.clearRect(0, 0, W, H);
+        particles.forEach(p => {
+          p.x += p.speedX;
+          p.y += p.speedY;
+          if (p.x < 0 || p.x > W) p.speedX *= -1;
+          if (p.y < 0 || p.y > H) p.speedY *= -1;
+          ctx.fillStyle = `rgba(56, 189, 248, ${p.opacity})`;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        if (animActive) requestAnimationFrame(draw);
+      };
+
+      const heroEl = $qs('.hero');
+      new IntersectionObserver(([entry]) => {
+        if (entry.isIntersecting && !animActive) {
+          animActive = true;
+          requestAnimationFrame(draw);
+        } else if (!entry.isIntersecting) {
+          animActive = false;
+        }
+      }, { threshold: 0 }).observe(heroEl || particleCanvas);
+
+      requestAnimationFrame(draw);
+
+      // Resize: keep W/H in sync so particles bounce at correct edges
+      window.addEventListener('resize', debounce(() => {
+        const r = particleCanvas.getBoundingClientRect();
+        W = r.width;
+        H = r.height;
+        particleCanvas.width  = W * dpr;
+        particleCanvas.height = H * dpr;
+        ctx.scale(dpr, dpr);
+      }, 200));
+    });
+  };
+
+  /* ---------- 4. Hero animation
+     FIX B8: guard against missing GSAP (CDN failure)              ---------- */
+  const initHeroAnimation = () => {
+    if (prefersReduced || !window.gsap) return;
+
+    const heroContent = $qs('.hero-content');
+    if (!heroContent) return;
+
+    const tl = gsap.timeline({ defaults: { ease: 'power2.out' } });
+    tl.from('.hero-content .hero-kicker',  { opacity: 0, y: 12, duration: 0.35 })
+      .from('.hero-content h1',            { opacity: 0, y:  8, duration: 0.45 }, '-=0.2')
+      .from('.hero-content p',             { opacity: 0, y:  6, duration: 0.45 }, '-=0.25')
+      .from('.hero-content .hero-actions', { opacity: 0, y: 10, duration: 0.4, stagger: 0.1 }, '-=0.2')
+      .from('.identity-card',              { opacity: 0, scale: 0.98, duration: 0.35 }, '-=0.3');
+
+    tl.play();
+  };
+
+  /* ---------- 5. Section reveals
+     FIX B4: removed orphaned '.section-reveal' selector (class doesn't
+             exist in index.html — only in reference-design.html).
+     FIX B8: guard against missing GSAP.                           ---------- */
+  const initSectionReveals = () => {
+    if (prefersReduced || !window.gsap) return;
+
+    gsap.utils.toArray(
+      '.about-section, .tech-section, .projects-section, .experience-section, .workflow-section, .contact-section'
+    ).forEach(section => {
+      gsap.from(section, {
         opacity: 0,
-        y: 72,
-        rotateX: 6,
-        scale: 0.97,
-        transformOrigin: 'center top'
-      },
-      {
-        opacity: 1,
-        y: 0,
-        rotateX: 0,
-        scale: 1,
+        y: 24,
+        duration: 0.65,
         ease: 'power2.out',
         scrollTrigger: {
           trigger: section,
-          start: 'top 88%',
-          end: 'top 45%',
-          scrub: 0.6
+          start: 'top 85%',
+          toggleActions: 'play none none none',
+        },
+      });
+    });
+  };
+
+  /* ---------- 6. Staggered card reveals
+     FIX B7: delay capped at 300 ms — last card was delayed 1 s+.
+     FIX B8: guard against missing GSAP.                           ---------- */
+  const initCardReveals = () => {
+    if (prefersReduced || !window.gsap) return;
+
+    const cards = $qsa('.project-card, .tech-category, .timeline-item, .workflow-item');
+    cards.forEach((card, index) => {
+      gsap.fromTo(
+        card,
+        { opacity: 0, y: 24 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.5,
+          delay: Math.min(index * 0.05, 0.3), // cap at 300 ms
+          ease: 'power2.out',
+          scrollTrigger: {
+            trigger: card,
+            start: 'top 85%',
+          },
         }
-      }
-    );
-  });
-}
-
-
-// Smooth scroll for anchor links
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-  anchor.addEventListener('click', function(e) {
-    e.preventDefault();
-    const target = document.querySelector(this.getAttribute('href'));
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  });
-});
-
-// Hero canvas - cinematic particle effect (replacing the heavy Three.js)
-const canvas = document.querySelector('#hero-canvas');
-if (canvas) {
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 100);
-  camera.position.z = 8;
-
-  const group = new THREE.Group();
-  scene.add(group);
-
-  // Subtle glowing sphere
-  const geometry = new THREE.IcosahedronGeometry(2.2, 1);
-  const material = new THREE.MeshStandardMaterial({
-    color: 0x3f86ff,
-    roughness: 0.4,
-    metalness: 0.6,
-    transparent: true,
-    opacity: 0.85,
-  });
-  const core = new THREE.Mesh(geometry, material);
-  group.add(core);
-
-  // Thin wireframe
-  const wire = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(2.3, 1),
-    new THREE.MeshBasicMaterial({ color: 0x5df3ff, wireframe: true, transparent: true, opacity: 0.18 })
-  );
-  group.add(wire);
-
-  // Particle system
-  const count = 30; // further reduced for performance
-  const positions = new Float32Array(count * 3);
-  for (let i = 0; i < count; i++) {
-    const radius = 3 + Math.random() * 2;
-    const theta = Math.random() * Math.PI * 2;
-    const phi = (Math.random() - 0.5) * Math.PI;
-    positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
-    positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-    positions[i * 3 + 2] = radius * Math.cos(phi);
-  }
-  const particleGeometry = new THREE.BufferGeometry();
-  particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  const particles = new THREE.Points(
-    particleGeometry,
-    new THREE.PointsMaterial({ color: 0x9befff, size: 0.02, transparent: true, opacity: 0.6 })
-  );
-  group.add(particles);
-
-  // Lighting
-  scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-  const key = new THREE.DirectionalLight(0x9befff, 1.8);
-  key.position.set(4, 4, 5);
-  scene.add(key);
-
-  let pointerX = 0;
-  let pointerY = 0;
-  window.addEventListener('pointermove', (e) => {
-    pointerX = (e.clientX / window.innerWidth - 0.5) * 0.3;
-    pointerY = (e.clientY / window.innerHeight - 0.5) * 0.2;
-  });
-
-  let canvasWidth = 0;
-  let canvasHeight = 0;
-
-  function resize() {
-    const rect = canvas.getBoundingClientRect();
-    const nextWidth = Math.max(1, Math.round(rect.width));
-    const nextHeight = Math.max(1, Math.round(rect.height));
-    if (nextWidth === canvasWidth && nextHeight === canvasHeight) {
-      return;
-    }
-
-    canvasWidth = nextWidth;
-    canvasHeight = nextHeight;
-    renderer.setSize(canvasWidth, canvasHeight, false);
-    camera.aspect = canvasWidth / canvasHeight;
-    camera.updateProjectionMatrix();
-  }
-
-  function animate(time) {
-    const t = time * 0.001;
-    group.rotation.y = t * 0.12 + pointerX;
-    group.rotation.x = -0.15 + Math.sin(t * 0.4) * 0.05 + pointerY;
-    core.rotation.y = t * 0.15;
-    wire.rotation.y = -t * 0.15;
-    particles.rotation.y = t * 0.03;
-    renderer.render(scene, camera);
-    requestAnimationFrame(animate);
-  }
-
-  resize();
-  renderer.render(scene, camera);
-  window.addEventListener('resize', () => {
-    resize();
-    renderer.render(scene, camera);
-  }, { passive: true });
-
-  if (!prefersReducedMotion) {
-    animate(0);
-  }
-}
-
-// Scroll reveal animations – optimized with visibility check
-if (canUseGsap) {
-  const cardSelectors = '.tech-category, .project-card, .timeline-item, .workflow-item';
-  const cards = window.gsap.utils.toArray(cardSelectors);
-  cards.forEach((card) => {
-    window.gsap.from(card, {
-      opacity: 0,
-      y: 48,
-      rotateX: 0,
-      ease: 'power2.out',
-      scrollTrigger: {
-        trigger: card,
-        start: 'top 90%',
-        duration: 0.6,
-        once: true
-      }
+      );
     });
-  });
-}
+  };
 
-let isHidden = false;
-document.addEventListener('visibilitychange', () => {
-  isHidden = document.hidden;
-  if (isHidden && !prefersReducedMotion) {
-    cancelAnimationFrame(animate_id);
-  } else if (!isHidden && !prefersReducedMotion) {
-    animate_id = requestAnimationFrame(animate);
-  }
-});
+  /* ---------- 7. Navigation scroll effect
+     FIX B3: removed dead variable 'ticking' (declared, never used).
+     Matching CSS rule '.topbar.scrolled' added in styles.css (B1).  ---------- */
+  const initNavState = () => {
+    if (prefersReduced) return;
+    window.addEventListener('scroll', debounce(() => {
+      requestAnimationFrame(() => {
+        const nav = $qs('.topbar');
+        if (nav) nav.classList.toggle('scrolled', window.scrollY > 20);
+      });
+    }, 16));
+  };
 
-// Enhanced button interactions
-document.querySelectorAll('.button').forEach(btn => {
-  btn.addEventListener('mouseenter', () => {
-    btn.style.transform = 'translateY(-2px)';
-  });
-  btn.addEventListener('mouseleave', () => {
-    btn.style.transform = 'translateY(0)';
-  });
-});
-
-// Parallax effect on hero
-let scrollY = 0;
-if (!prefersReducedMotion) {
-  let ticking = false;
-  window.addEventListener('scroll', () => {
-    scrollY = window.scrollY;
-    if (ticking) {
-      return;
-    }
-
-    ticking = true;
-    requestAnimationFrame(() => {
-      const heroCopy = document.querySelector('.hero-copy');
-      if (heroCopy) {
-        heroCopy.style.transform = `translateY(${scrollY * 0.12}px)`;
-        heroCopy.style.opacity = Math.max(0.45, 1 - scrollY * 0.001);
-      }
-      ticking = false;
+  /* ---------- 8. Image fallback
+     FIX B6: replace the entire .portrait-wrap instead of inserting
+             the fallback div *inside* it (which caused ::after overlay
+             and unwanted margin stacking).                         ---------- */
+  const initImageFallback = () => {
+    $qsa('img').forEach(img => {
+      img.addEventListener('error', () => {
+        img.style.display = 'none';
+        const fallback = document.createElement('div');
+        fallback.className = 'portrait-fallback';
+        fallback.textContent = 'DN';
+        const wrap = img.closest('.portrait-wrap');
+        if (wrap) {
+          wrap.parentNode.replaceChild(fallback, wrap);
+        } else {
+          img.parentNode.insertBefore(fallback, img);
+        }
+      });
     });
-  }, { passive: true });
-}
+  };
 
-// Staggered reveal for timeline items
-const timelineItems = document.querySelectorAll('.timeline-item');
-timelineItems.forEach((item, index) => {
-  item.style.transitionDelay = `${index * 100}ms`;
-});
-
-// Tech category stagger
-const techCategories = document.querySelectorAll('.tech-category');
-techCategories.forEach((cat, index) => {
-  cat.style.transitionDelay = `${index * 80}ms`;
-});
-
-// Project cards stagger
-const projectCards = document.querySelectorAll('.project-card');
-projectCards.forEach((card, index) => {
-  card.style.transitionDelay = `${index * 100}ms`;
-});
-
-// Hero 3D animations
-const canUseHeroGsap =
-  window.gsap &&
-  window.ScrollTrigger &&
-  !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-if (canUseHeroGsap) {
-  const gsapLib = window.gsap;
-  gsapLib.registerPlugin(window.ScrollTrigger);
-
-  const hero = document.querySelector('.hero');
-  const heroCopy = document.querySelector('.hero-copy');
-  const identityCard = document.querySelector('.identity-card');
-  const tags = document.querySelectorAll('.tag-strip span');
-
-  if (hero && heroCopy && identityCard) {
-    const heroIntro = gsapLib.timeline({
-      defaults: {
-        ease: 'power3.out',
-        duration: 1
-      }
-    });
-
-    heroIntro
-      .from(heroCopy, {
-        opacity: 0,
-        y: 44,
-        scale: 0.98
-      })
-      .from(identityCard, {
-        opacity: 0,
-        y: 48,
-        rotateX: 8,
-        rotateY: -6,
-        scale: 0.96,
-        transformOrigin: 'center center'
-      }, '-=0.65')
-      .from(tags, {
-        opacity: 0,
-        y: 12,
-        scale: 0.94,
-        stagger: 0.045,
-        duration: 0.5
-      }, '-=0.45');
-
-    gsapLib.timeline({
-      scrollTrigger: {
-        trigger: hero,
-        start: 'top top',
-        end: 'bottom top',
-        scrub: 0.8
-      }
-    })
-      .to(heroCopy, {
-        y: -56,
-        opacity: 0.72,
-        ease: 'none'
-      }, 0)
-      .to(identityCard, {
-        y: 36,
-        rotateX: -4,
-        scale: 0.94,
-        opacity: 0.78,
-        ease: 'none'
-      }, 0);
-  }
-}
+  /* ---------- 9. Init ---------- */
+  window.addEventListener('DOMContentLoaded', () => {
+    initCanvas();           // B2: moved here so layout is ready
+    initHeroAnimation();
+    initSectionReveals();
+    initCardReveals();
+    initNavState();
+    initImageFallback();
+  });
+})();
