@@ -200,7 +200,156 @@
     });
   };
 
-  /* ---------- 9. Init ---------- */
+  /* ---------- 9. Kapitel-Navigation ----------
+     Jeder deutliche Wheel-/Pfeiltasten-Impuls springt auf Desktop ein Kapitel weiter.
+     Auf Mobile bleibt normales Lesen/Scrollen erhalten, weil die Karten dort
+     bewusst untereinander stehen. */
+  const initTourNavigation = () => {
+    const sections = Array.from($qsa(
+      '.hero, .about-section, .tech-section, .projects-section, .experience-section, .workflow-section, .contact-section'
+    ));
+    if (!sections.length) return;
+
+    const navLinks = new Map([['top', $qs('.brand')]]);
+    const navItems = Array.from($qsa('.brand, .navlinks a[href^="#"]'));
+    $qsa('.navlinks a[href^="#"]').forEach((a) => {
+      const id = a.getAttribute('href').slice(1);
+      if (id) navLinks.set(id, a);
+    });
+
+    let activeIndex = 0;
+    let isChapterScrolling = false;
+    let touchStartY = 0;
+    const chapterWheelEnabled = () => window.matchMedia('(width > 900px)').matches;
+
+    const sectionId = (section, index) => index === 0 ? 'top' : section.id;
+
+    const activeSectionIndex = () => {
+      const viewportAnchor = window.scrollY + window.innerHeight * 0.42;
+      return sections.reduce((current, section, index) => {
+        return section.offsetTop <= viewportAnchor ? index : current;
+      }, 0);
+    };
+
+    const setActive = (index) => {
+      activeIndex = Math.max(0, Math.min(index, sections.length - 1));
+      sections.forEach((section, sectionIndex) => {
+        section.classList.toggle('chapter-active', sectionIndex === activeIndex);
+        section.classList.toggle('chapter-before', sectionIndex < activeIndex);
+      });
+
+      navLinks.forEach((a) => a?.classList.remove('active'));
+      const activeLink = navLinks.get(sectionId(sections[activeIndex], activeIndex));
+      activeLink?.classList.add('active');
+    };
+
+    const scrollToChapter = (index) => {
+      const nextIndex = Math.max(0, Math.min(index, sections.length - 1));
+      const nextSection = sections[nextIndex];
+      if (!nextSection) return;
+
+      setActive(nextIndex);
+      const stickyOffset = nextIndex === 0 ? 0 : (($qs('.topbar')?.offsetHeight || 72) + 22);
+      window.scrollTo({
+        top: Math.max(0, nextSection.offsetTop - stickyOffset),
+        behavior: prefersReduced ? 'auto' : 'smooth',
+      });
+    };
+
+    const startChapterScroll = (index) => {
+      if (isChapterScrolling) return;
+      isChapterScrolling = true;
+      scrollToChapter(index);
+      window.setTimeout(() => {
+        isChapterScrolling = false;
+        setActive(activeSectionIndex());
+      }, prefersReduced ? 120 : 720);
+    };
+
+    navItems.forEach((item) => {
+      item.addEventListener('click', (event) => {
+        const href = item.getAttribute('href');
+        if (!href?.startsWith('#')) return;
+
+        const target = href === '#top' ? sections[0] : $qs(href);
+        const targetIndex = sections.indexOf(target);
+        if (targetIndex < 0) return;
+
+        event.preventDefault();
+        window.history.pushState(null, '', href);
+        scrollToChapter(targetIndex);
+      });
+    });
+
+    document.addEventListener('keydown', (event) => {
+      const activeElement = document.activeElement;
+      const isTyping = activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement.tagName);
+      if (isTyping || event.metaKey || event.ctrlKey || event.altKey) return;
+
+      if (event.key === 'ArrowDown' || event.key === 'PageDown') {
+        event.preventDefault();
+        startChapterScroll(activeSectionIndex() + 1);
+      }
+
+      if (event.key === 'ArrowUp' || event.key === 'PageUp') {
+        event.preventDefault();
+        startChapterScroll(activeSectionIndex() - 1);
+      }
+    });
+
+    const handleWheel = (event) => {
+      if (!chapterWheelEnabled()) return;
+      if (event.target.closest?.('.navlinks') || Math.abs(event.deltaY) < 16) return;
+      event.preventDefault();
+      startChapterScroll(activeSectionIndex() + (event.deltaY > 0 ? 1 : -1));
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: false });
+
+    window.addEventListener('touchstart', (event) => {
+      touchStartY = event.touches[0]?.clientY ?? 0;
+    }, { passive: true });
+
+    window.addEventListener('touchend', (event) => {
+      const touchEndY = event.changedTouches[0]?.clientY ?? touchStartY;
+      const deltaY = touchStartY - touchEndY;
+      if (!chapterWheelEnabled()) return;
+      if (Math.abs(deltaY) < 52) return;
+      startChapterScroll(activeSectionIndex() + (deltaY > 0 ? 1 : -1));
+    }, { passive: true });
+
+    let activeTicking = false;
+    window.addEventListener('scroll', () => {
+      if (isChapterScrolling || activeTicking) return;
+      activeTicking = true;
+      requestAnimationFrame(() => {
+        setActive(activeSectionIndex());
+        activeTicking = false;
+      });
+    }, { passive: true });
+
+    const alignCurrentHash = () => {
+      if (!window.location.hash) return false;
+      const hashTarget = window.location.hash === '#top' ? sections[0] : $qs(window.location.hash);
+      const hashIndex = sections.indexOf(hashTarget);
+      if (hashIndex < 0) return false;
+
+      scrollToChapter(hashIndex);
+      return true;
+    };
+
+    if (alignCurrentHash()) {
+      requestAnimationFrame(alignCurrentHash);
+      window.setTimeout(alignCurrentHash, 260);
+    } else {
+      setActive(activeSectionIndex());
+    }
+
+    window.addEventListener('load', () => window.setTimeout(alignCurrentHash, 0));
+    window.addEventListener('hashchange', () => window.setTimeout(alignCurrentHash, 0));
+  };
+
+  /* ---------- 10. Init ---------- */
   window.addEventListener('DOMContentLoaded', () => {
     initCanvas();           // B2: moved here so layout is ready
     initHeroAnimation();
@@ -208,5 +357,6 @@
     initCardReveals();
     initNavState();
     initImageFallback();
+    initTourNavigation();
   });
 })();
